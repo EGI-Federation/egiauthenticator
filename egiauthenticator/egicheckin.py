@@ -34,7 +34,12 @@ def login_handler(checkin_host):
     class _EGICheckinLoginHandler(OAuthLoginHandler, _EGICheckinMixin):
         pass
 
-    return _EGICheckinLoginHandler
+    e = _EGICheckinLoginHandler
+    print("HELLO!")
+    print("checkin_host: %s" % checkin_host)
+    print(e._OAUTH_ACCESS_TOKEN_URL)
+    print(e._OAUTH_AUTHORIZE_URL)
+    return e
 
 
 class EGICheckinAuthenticator(GenericOAuthenticator):
