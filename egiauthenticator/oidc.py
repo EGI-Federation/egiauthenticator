@@ -15,7 +15,7 @@ from traitlets import Unicode
 
 from oauthenticator.generic import GenericOAuthenticator
 
-def OIDCAuthenticator(GenericOAuthenticator):
+class OIDCAuthenticator(GenericOAuthenticator):
     client_auth_method = Unicode(
         "client_secret_basic",
         config=True
