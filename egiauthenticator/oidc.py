@@ -7,9 +7,9 @@ import base64
 import json
 import urllib
 
+from tornado import gen
 from tornado.httputil import url_concat
 from tornado.httpclient import HTTPRequest, AsyncHTTPClient
-
 
 from traitlets import Unicode 
 
