@@ -9,7 +9,7 @@ import urllib
 
 from tornado import gen
 from tornado.httputil import url_concat
-from tornado.httpclient import HTTPRequest, AsyncHTTPClient
+from tornado.httpclient import HTTPRequest, AsyncHTTPClient, HTTPError
 
 from traitlets import Unicode 
 
@@ -20,6 +20,16 @@ class OIDCAuthenticator(GenericOAuthenticator):
         "client_secret_basic",
         config=True
     )
+
+    onezone_url = Unicode(default_value='',
+                          config=True,
+                          help="""Onedata onezone URL""")
+    oneprovider_host = Unicode(default_value='',
+                               config=True,
+                               help="""Onedata oneprovider hostname""")
+    onezone_idp = Unicode(default_value='',
+                          config=True,
+                          help="""Onezone idp name""")
 
     @gen.coroutine
     def authenticate(self, handler, data=None):
@@ -65,11 +75,7 @@ class OIDCAuthenticator(GenericOAuthenticator):
                           validate_cert=self.tls_verify,
                           body=urllib.parse.urlencode(params)  # Body is required for a POST...
                           )
-        self.log.error("HERE: %s", req.url)
-        self.log.error("HERE: %s", req.body)
-        self.log.error("HERE: %s", req.headers)
         resp = yield http_client.fetch(req)
-        self.log.error("THERE: %s", resp)
 
         resp_json = json.loads(resp.body.decode('utf8', 'replace'))
 
@@ -101,12 +107,45 @@ class OIDCAuthenticator(GenericOAuthenticator):
             self.log.error("OAuth user contains no key %s: %s", self.username_key, resp_json)
             return
 
-        return {
-            'name': resp_json.get(self.username_key),
-            'auth_state': {
+        auth_state =  {
                 'access_token': access_token,
                 'refresh_token': refresh_token,
                 'oauth_user': resp_json,
                 'scope': scope,
             }
+
+        if self.onezone_url:
+            onedata_token = None
+            # We now go to the datahub to get a token
+            req = HTTPRequest(self.onezone_url + '/api/v3/onezone/user/client_tokens',
+                              headers={'content-type': 'application/json',
+                                       'x-auth-token': '%s:%s' % (self.onezone_idp, access_token)},
+                              method='GET')
+            try:
+                resp = yield http_client.fetch(req)
+                datahub_response = json.loads(resp.body.decode('utf8', 'replace'))
+                if datahub_response['tokens']:
+                    onedata_token = datahub_response['tokens'].pop(0)
+            except HTTPError as e:
+                self.log.info("Something failed! %s", e)
+                raise e
+            if not onedata_token:
+                # we don't have a token, create one
+                req = HTTPRequest(self.onezone_url + '/api/v3/onezone/user/client_tokens',
+                                  headers={'content-type': 'application/json',
+                                           'x-auth-token': '%s:%s' % (self.onezone_idp, access_token)},
+                                  method='POST',
+                                  body='')
+                try:
+                    resp = yield http_client.fetch(req)
+                    datahub_response = json.loads(resp.body.decode('utf8', 'replace'))
+                    onedata_token = datahub_response['token']
+                except HTTPError as e:
+                    self.log.info("Something failed! %s", e)
+                    raise e
+            auth_state['onezone_token'] = onedata_token
+
+        return {
+            'name': resp_json.get(self.username_key),
+            'auth_state': auth_state,
         }
