@@ -149,3 +149,13 @@ class OIDCAuthenticator(GenericOAuthenticator):
             'name': resp_json.get(self.username_key),
             'auth_state': auth_state,
         }
+
+    @gen.coroutine
+    def pre_spawn_start(self, user, spawner):
+        yield super(DataHubAuthenticator, self).pre_spawn_start(user, spawner)
+        auth_state = yield user.get_auth_state()
+        if not auth_state:
+            # auth_state not enabled
+            return
+        spawner.environment['ONECLIENT_ACCESS_TOKEN'] = auth_state.get('onezone_token')
+        spawner.environment['ONEPROVIDER_HOST'] = self.oneprovider_host
