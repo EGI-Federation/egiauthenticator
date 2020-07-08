@@ -11,48 +11,41 @@ import os
 import urllib
 import time
 
-from tornado.auth import OAuth2Mixin
-from tornado import web
-
-from tornado.httputil import url_concat
-from tornado.httpclient import HTTPRequest, AsyncHTTPClient
 
 from jupyterhub.auth import LocalAuthenticator
 from jupyterhub.handlers import BaseHandler
-
-from traitlets import Unicode, List, Bool, validate
-
 from oauthenticator.generic import GenericOAuthenticator
-from oauthenticator.oauth2 import OAuthLoginHandler
-
-
-def login_handler(checkin_host):
-    class _EGICheckinMixin(OAuth2Mixin):
-        _OAUTH_ACCESS_TOKEN_URL = "https://%s/oidc/token" % checkin_host
-        _OAUTH_AUTHORIZE_URL = "https://%s/oidc/authorize" % checkin_host
-
-    class _EGICheckinLoginHandler(OAuthLoginHandler, _EGICheckinMixin):
-        pass
-
-    e = _EGICheckinLoginHandler
-    print("HELLO!")
-    print("checkin_host: %s" % checkin_host)
-    print(e._OAUTH_ACCESS_TOKEN_URL)
-    print(e._OAUTH_AUTHORIZE_URL)
-    return e
+from tornado.httputil import url_concat
+from tornado.httpclient import HTTPRequest, AsyncHTTPClient
+from traitlets import Unicode, List, Bool, default, validate
 
 
 class EGICheckinAuthenticator(GenericOAuthenticator):
     login_service = "EGI Check-in"
 
-    chechin_host_env = "EGICHECKIN_HOST"
+    checkin_host_env = "EGICHECKIN_HOST"
     checkin_host = Unicode(config=True, help="""The EGI Check-in host to use""")
 
-    def _client_id_default(self):
+    @default("checkin_host")
+    def _checkin_host_default(self):
         default = "aai.egi.eu"
         if self.checkin_host_env:
             return os.getenv(self.checkin_host_env, default)
         return default
+
+    @default("authorize_url")
+    def _authorize_url_default(self):
+        return "https://%s/oidc/authorize" % self.checkin_host
+        return os.environ.get("OAUTH2_AUTHORIZE_URL", "")
+
+    @default("token_url")
+    def _token_url_default(self):
+        return "https://%s/oidc/token" % self.checkin_host
+
+    @default("userdata_url")
+    def _userdata_url_default(self):
+        return "https://%s/oidc/userinfo" % self.checkin_host
+
 
     client_id_env = "EGICHECKIN_CLIENT_ID"
     client_secret_env = "EGICHECKIN_CLIENT_SECRET"
@@ -113,18 +106,6 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
         too long.
         """,
     )
-
-    @property
-    def token_url(self):
-        return "https://%s/oidc/token" % self.checkin_host
-
-    @property
-    def userdata_url(self):
-        return "https://%s/oidc/userinfo" % self.checkin_host
-
-    @property
-    def login_handler(self):
-        return login_handler(self.checkin_host)
 
     def check_attrs_whitelist(self, user_info, whitelist, key):
         # our check whitelist uses affiliations and entitlements
@@ -198,5 +179,4 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
 
 class LocalEGICheckinAuthenticator(LocalAuthenticator, EGICheckinAuthenticator):
     """A version that mixes in local system user creation"""
-
     pass
