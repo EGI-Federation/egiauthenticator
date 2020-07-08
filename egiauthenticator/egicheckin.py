@@ -77,20 +77,20 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
     entitlements_key = Unicode(
         "edu_person_entitlements",
         config=True,
-        help="Claim name used to whitelist users",
+        help="Claim name used to allow users",
     )
 
-    entitlements_whitelist = List(
+    allowed_entitlements = List(
         config=True, help="""A list of user claims that are authorized to login.""",
     )
 
     affiliations_key = Unicode(
         "edu_person_scoped_affiliations",
         config=True,
-        help="Claim name used to whitelist affiliations",
+        help="Claim name used to allow affiliations",
     )
 
-    affiliations_whitelist = List(
+    allowed_affiliations = List(
         config=True,
         help="""A list of user affiliations that are authorized to login.""",
     )
@@ -107,28 +107,27 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
         """,
     )
 
-    def check_attrs_whitelist(self, user_info, whitelist, key):
-        # our check whitelist uses affiliations and entitlements
-        if not whitelist:
+    def check_allowed_attrs(self, user_info, allowed, key):
+        # our check uses affiliations and entitlements
+        if not allowed:
             return True
         gotten_claims = user_info(key, "")
         self.log.debug("These are the claims: %s", gotten_claims)
-        return any(x in gotten_claims for x in whitelist)
+        return any(x in gotten_claims for x in allowed)
 
     def check_whitelist(self, username, authentication=None):
         user_info = authentication.get("oauth_user", {})
         # this clearly needs some thought
         # does it make sense to have both?
-        affiliations = self.check_attrs_whitelist(
-            user_info, self.affiliations_whitelist, self.affiliations_key
+        affiliations = self.check_allowed_attrs(
+            user_info, self.allowed_affiliations, self.affiliations_key
         )
-        entitlements = self.check_attrs_whitelist(
-            user_info, self.entitlements_whitelist, self.entitlements_key
+        entitlements = self.check_allowed_attrs(
+            user_info, self.allowed_entitlements, self.entitlements_key
         )
         return (
             affiliations
             and entitlements
-            and super().check_whitelist(username, authentication)
         )
 
     # Refresh auth data for user
