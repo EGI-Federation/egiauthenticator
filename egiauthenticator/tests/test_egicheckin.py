@@ -1,3 +1,3 @@
-# check whitelist functionality
+# check allowed functionality
 
 # check refresh functionality

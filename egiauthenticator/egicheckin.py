@@ -36,7 +36,6 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
     @default("authorize_url")
     def _authorize_url_default(self):
         return "https://%s/oidc/authorize" % self.checkin_host
-        return os.environ.get("OAUTH2_AUTHORIZE_URL", "")
 
     @default("token_url")
     def _token_url_default(self):
