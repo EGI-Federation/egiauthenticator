@@ -16,7 +16,7 @@ from jupyterhub.auth import LocalAuthenticator
 from jupyterhub.handlers import BaseHandler
 from oauthenticator.generic import GenericOAuthenticator
 from tornado.httputil import url_concat
-from tornado.httpclient import HTTPRequest, AsyncHTTPClient
+from tornado.httpclient import AsyncHTTPClient, HTTPClientError, HTTPRequest
 from traitlets import Unicode, List, Bool, default, validate
 
 
@@ -133,6 +133,7 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
     async def refresh_user(self, user, handler=None):
         self.log.debug("Refreshing credentials for user")
         auth_state = await user.get_auth_state()
+        self.log.debug("AUTH STATE: %s", auth_state)
         if not auth_state or "refresh_token" not in auth_state:
             self.log.warning("Trying to refresh user info without refresh token")
             return False
@@ -167,11 +168,16 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
             method="POST",
             body="",
         )
-        resp = await http_client.fetch(req)
+        try:
+            resp = await http_client.fetch(req)
+        except HTTPClientError as e:
+            self.log.warning("Unable to refresh token, maybe expired: %s", e)
+            return False
         refresh_info = json.loads(resp.body.decode("utf8", "replace"))
         refresh_info["expiry_time"] = now + refresh_info["expires_in"]
         auth_state["refresh_info"] = refresh_info
         auth_state["access_token"] = refresh_info["access_token"]
+        auth_state["refresh_token"] = refresh_info["refresh_token"]
         return {"auth_state": auth_state}
 
 
