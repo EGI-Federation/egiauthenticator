@@ -131,21 +131,21 @@ class EGICheckinAuthenticator(GenericOAuthenticator):
 
     # Refresh auth data for user
     async def refresh_user(self, user, handler=None):
-        self.log.debug("Refreshing credentials for user")
         auth_state = await user.get_auth_state()
         if not auth_state or "refresh_token" not in auth_state:
-            self.log.warning("Trying to refresh user info without refresh token")
+            self.log.warning("Cannot refresh user info without refresh token")
             return False
 
         now = time.time()
         refresh_info = auth_state.get("refresh_info", {})
         # if the token is still valid, avoid refreshing
-        if refresh_info.get("expiry_time", 0) > now:
-            self.log.debug("Credentials still valid!")
+        time_left = refresh_info.get("expiry_time", 0) - now
+        if time_left > self.auth_refresh_age:
+            self.log.debug("Credentials still valid, time left: %f", time_left)
             return True
 
         # performing the refresh token call
-        self.log.debug("Refresh call to Check-in")
+        self.log.debug("Perform refresh call to Check-in")
         http_client = AsyncHTTPClient()
         headers = {
             "Accept": "application/json",

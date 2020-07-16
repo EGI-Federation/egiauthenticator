@@ -1,2 +1,2 @@
 jupyterhub>=1.0
-oauthenticator
+oauthenticator>=0.10
